@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1 - 2026-11-25
+
+Pin CurseForge releases exclusively to World of Warcraft: Forever 1.60.1.
+
 ## 1.0.0 - 2026-11-25
 
 Initial release for **World of Warcraft: Forever 1.60.1 (Interface 16001)**.

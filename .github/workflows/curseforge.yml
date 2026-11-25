@@ -1,4 +1,4 @@
-# Upload a tag to CurseForge project 1830649 (Jeweled).
+# Upload a tag to CurseForge project 1830649 (Jeweled — WoW Forever 1.60.1 ONLY).
 # The API token is the CF_API_TOKEN repository secret, never a file in git.
 name: CurseForge
 
@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Package and upload
+      - name: Package and upload (Forever 1.60.1 only)
         env:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_PROJECT_ID: ${{ vars.CF_PROJECT_ID || '1830649' }}
@@ -46,22 +46,80 @@ jobs:
           if [ ! -s /tmp/notes.md ]; then
             printf 'Release %s\n' "$VERSION" > /tmp/notes.md
           fi
+
+          # Resolve the exact CurseForge gameVersion ID for WoW Forever 1.60.1 (Interface 16001)
+          curl --fail-with-body --silent --show-error \
+            --header "X-Api-Token: ${CF_API_TOKEN}" \
+            "https://wow.curseforge.com/api/game/version-types" \
+            -o /tmp/version-types.json
+          curl --fail-with-body --silent --show-error \
+            --header "X-Api-Token: ${CF_API_TOKEN}" \
+            "https://wow.curseforge.com/api/game/versions" \
+            -o /tmp/versions.json
+
           stage="$(mktemp -d)"
           cp -R Jeweled "$stage/Jeweled"
           cp LICENSE "$stage/Jeweled/LICENSE"
           (cd "$stage" && zip -r -q "/tmp/Jeweled-${VERSION}.zip" Jeweled)
+
           VERSION="$VERSION" RELEASE_TYPE="$RELEASE_TYPE" python3 - <<'PY'
-          import json, os
+          import json, os, re, sys
           from pathlib import Path
+
+          toc = Path("Jeweled/Jeweled.toc").read_text(encoding="utf-8")
+          m = re.search(r"^##\s*Interface:\s*(\d+)", toc, re.MULTILINE)
+          if not m:
+              sys.exit("Jeweled.toc missing ## Interface header")
+          iface = int(m.group(1))
+          target_ver = f"{iface // 10000}.{(iface // 100) % 100}.{iface % 100}"
+          print(f"TOC Interface={iface} -> target game version {target_ver}")
+
+          vtypes = {t["id"]: t for t in json.loads(Path("/tmp/version-types.json").read_text(encoding="utf-8"))}
+          versions = json.loads(Path("/tmp/versions.json").read_text(encoding="utf-8"))
+
+          forever_type_ids = {
+              tid for tid, t in vtypes.items()
+              if "forever" in (t.get("name") or "").lower() or "forever" in (t.get("slug") or "").lower()
+          }
+
+          matches = [
+              v for v in versions
+              if (v.get("name") == target_ver or str(v.get("apiVersion") or "") == str(iface))
+              and (not forever_type_ids or v.get("gameVersionTypeID") in forever_type_ids)
+          ]
+          if not matches:
+              # Fallback: match exact version string "1.60.1" (excluding Retail types)
+              matches = [
+                  v for v in versions
+                  if v.get("name") == target_ver
+                  and "retail" not in (vtypes.get(v.get("gameVersionTypeID"), {}).get("name") or "").lower()
+              ]
+          if not matches:
+              # Diagnostic output so we never silently fall back to Retail
+              print("Version types:", [(t.get("id"), t.get("name"), t.get("slug")) for t in vtypes.values()])
+              candidates = [
+                  (v.get("id"), v.get("name"), v.get("apiVersion"), vtypes.get(v.get("gameVersionTypeID"), {}).get("name"))
+                  for v in versions
+                  if "1.60" in str(v.get("name")) or v.get("gameVersionTypeID") in forever_type_ids
+              ]
+              print("Forever version candidates:", candidates)
+              sys.exit(f"Could not find CurseForge gameVersion for {target_ver} (WoW Forever)")
+
+          chosen = matches[0]
+          tname = vtypes.get(chosen.get("gameVersionTypeID"), {}).get("name", "?")
+          print(f"Resolved CurseForge gameVersion: id={chosen['id']} name={chosen['name']} type={tname}")
+
           notes = Path("/tmp/notes.md").read_text(encoding="utf-8").strip()
           meta = {
               "changelog": notes,
               "changelogType": "markdown",
               "displayName": f"Jeweled {os.environ['VERSION']}",
               "releaseType": os.environ["RELEASE_TYPE"],
+              "gameVersions": [chosen["id"]],
           }
           Path("/tmp/metadata.json").write_text(json.dumps(meta), encoding="utf-8")
           PY
+
           curl --fail-with-body --silent --show-error \
             --header "X-Api-Token: ${CF_API_TOKEN}" \
             --form "metadata=</tmp/metadata.json;type=application/json" \
