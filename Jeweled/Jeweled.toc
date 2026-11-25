@@ -1,0 +1,32 @@
+## Interface: 16001
+## Title: Jeweled
+## Notes: Match-3 puzzle game built for flight paths in World of Warcraft: Forever.
+## Author: Dave
+## Version: 1.0.0
+## X-License: GPL-3.0-only
+## X-Website: https://github.com/doubletap-dave/Jeweled
+## X-Curse-Project-ID: 1830649
+## IconTexture: Interface\AddOns\Jeweled\Media\icon
+## AddonCompartmentFunc: Jeweled_OnAddonCompartmentClick
+## OptionalDeps: Polestar
+## SavedVariables: JeweledDB
+## SavedVariablesPerCharacter: JeweledCharDB
+
+Core.lua
+Art.lua
+Theme.lua
+Board.lua
+State.lua
+Sound.lua
+Anim.lua
+FX.lua
+Grid.lua
+Input.lua
+UI.lua
+Taxi.lua
+Achieve.lua
+Comms.lua
+Ranks.lua
+Minimap.lua
+Slash.lua
+Options.lua

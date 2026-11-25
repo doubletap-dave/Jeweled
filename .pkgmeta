@@ -1,0 +1,14 @@
+package-as: Jeweled
+enable-nolib-creation: no
+license-output: LICENSE
+manual-changelog: CHANGELOG.md
+
+move-folders:
+  Jeweled/Jeweled: Jeweled
+
+ignore:
+  - .github
+  - assets_src
+  - tests
+  - tools
+  - README.md
